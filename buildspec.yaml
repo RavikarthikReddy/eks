@@ -1,0 +1,63 @@
+ #buildspec.yaml
+version: 0.2
+
+# Define environment variables for CodeBuild.
+# These will be set in the CodeBuild project configuration in the AWS Console.
+# AWS_ACCOUNT_ID: (e.g., 111029214289)
+# AWS_DEFAULT_REGION: (e.g., eu-north-1)
+# ECR_REPOSITORY_NAME: (e.g., flask-eks)
+# EKS_CLUSTER_NAME: (e.g., your-eks-cluster-name) # REPLACE THIS WITH YOUR ACTUAL EKS CLUSTER NAME
+
+phases:
+  install:
+    commands:
+      - echo "Installing kubectl and aws-iam-authenticator..."
+      # Install kubectl
+      - curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      - chmod +x ./kubectl
+      - mv ./kubectl /usr/local/bin/kubectl
+      # Install aws-iam-authenticator (Crucial for EKS authentication)
+      # You might need to adjust the version (e.g., 1.26.2) based on your EKS cluster's Kubernetes version
+      - curl -o aws-iam-authenticator https://s3.us-west-2.amazonaws.com/amazon-eks/1.26.2/2023-03-17/bin/linux/amd64/aws-iam-authenticator
+      - chmod +x ./aws-iam-authenticator
+      - mv ./aws-iam-authenticator /usr/local/bin/aws-iam-authenticator
+      # Login to ECR using credentials provided by CodeBuild's IAM role
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      # Configure kubectl to connect to your EKS cluster
+      - echo "Updating kubeconfig for EKS cluster: $EKS_CLUSTER_NAME in region: $AWS_DEFAULT_REGION"
+      - aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name $EKS_CLUSTER_NAME
+
+  pre_build:
+    commands:
+      - echo "Pre-build phase: Preparing for Docker build."
+      # Any pre-build commands can go here.
+
+  build:
+    commands:
+      - echo "Build phase: Building and pushing Docker image."
+      # Get the short Git commit hash to use as a unique image tag
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      # Define the full image URI including the unique tag
+      - IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME:$COMMIT_HASH
+      # Build the Docker image from your Dockerfile
+      - docker build -t $ECR_REPOSITORY_NAME:$COMMIT_HASH .
+      # Tag the image with the full ECR URI
+      - docker tag $ECR_REPOSITORY_NAME:$COMMIT_HASH $IMAGE_URI
+      # Push the Docker image to ECR
+      - docker push $IMAGE_URI
+      - echo "Image pushed to ECR: $IMAGE_URI"
+
+  post_build:
+    commands:
+      - echo "Post-build phase: Deploying to Kubernetes."
+      # Update the Kubernetes deployment to use the new image.
+      # 'flask-app' is the name of your deployment, 'flask-app' is the container name in your deployment YAML.
+      # --record option adds a change-cause annotation to the resource, useful for history.
+      - kubectl set image deployment/flask-app flask-app=$IMAGE_URI --record
+      - echo "Kubernetes deployment updated for 'flask-app' with image: $IMAGE_URI"
+
+artifacts:
+  # Optionally, you can output artifacts here if needed for subsequent pipeline stages,
+  # but for this setup, we're doing everything in CodeBuild.
+  files: []
