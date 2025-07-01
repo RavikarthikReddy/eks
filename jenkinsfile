@@ -2,15 +2,15 @@ pipeline {
     agent any
 
     environment {
-        ECR_REPO = "<your-account-id>.dkr.ecr.ap-south-1.amazonaws.com/flask-app"
+        ECR_REPO = "111029214289.dkr.ecr.ap-south-1.amazonaws.com/flask-app"
         IMAGE_TAG = "latest"
-        REGION = "ap-south-1"
+        REGION = "us-east-1"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/<your-username>/eks-python-app.git'
+                git 'https://github.com/RavikarthikReddy/eks-python-app.git'
             }
         }
 
