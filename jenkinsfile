@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        ECR_REPO = "111029214289.dkr.ecr.ap-south-1.amazonaws.com/flask-app"
+        ECR_REPO = "111029214289.dkr.ecr.us-east-1.amazonaws.com/flask-app"
         IMAGE_TAG = "latest"
         REGION = "us-east-1"
     }
