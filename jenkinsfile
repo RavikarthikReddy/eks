@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'master' }
 
     environment {
         ECR_REPO = "111029214289.dkr.ecr.us-east-1.amazonaws.com/flask-app"
