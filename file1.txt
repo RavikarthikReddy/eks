@@ -1,0 +1,3 @@
+Now the new file has some content!
+this is line one 
+this is line 2 
